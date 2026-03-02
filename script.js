@@ -718,70 +718,42 @@ async function createPrivateGame() {
 }
 
 async function joinPrivateGame() {
-  const inputEl = document.getElementById('join-code-input');
-  const code = inputEl.value.trim();
+  const input = document.getElementById('join-code-input') || document.querySelector('input[placeholder*="4"]');
+  const code = input ? input.value.trim() : '';
 
   if (code.length !== 4) {
-    alert("Please enter the 4-digit code shown on your friend's screen.");
+    alert("Please enter a 4-digit code");
     return;
   }
 
-  const btn = document.querySelector('button[onclick="joinPrivateGame()"]');
-  const originalText = btn ? btn.textContent : "Join";
-  if (btn) {
-    btn.textContent = "Joining...";
-    btn.disabled = true;
+  const room = await fbGet(`rooms/${code}`);
+  const now = Date.now();
+
+  if (!room) {
+    alert(`No room found with code ${code}. Make sure your friend has created the room first.`);
+    return;
   }
 
-  try {
-    const room = await fbGet(`rooms/${code}`);
-    const now = Date.now();
-
-    if (!room) {
-      alert("No room found with code " + code + ". Make sure your friend has created the room first.");
-      if (btn) {
-        btn.textContent = originalText;
-        btn.disabled = false;
-      }
-      return;
-    }
-
-    if (room.expiresAt && now > room.expiresAt && room.status === 'waiting') {
-      alert("Room " + code + " has expired. Please ask your friend to create a new room.");
-      if (btn) {
-        btn.textContent = originalText;
-        btn.disabled = false;
-      }
-      return;
-    }
-
-    if (room.status !== 'waiting') {
-      alert("This game has already started or is no longer available.");
-      if (btn) {
-        btn.textContent = originalText;
-        btn.disabled = false;
-      }
-      return;
-    }
-
-    myRoom = code;
-    myColor = 'b';
-    opponentName = room.white.name;
-
-    await fbUpdate(`rooms/${code}`, {
-      black: { name: myName, connected: true },
-      status: 'playing'
-    });
-
-    startOnlineGame(opponentName, myName, 'b', code);
-  } catch (err) {
-    console.error(err);
-    alert("Connection error. Please try again.");
-    if (btn) {
-      btn.textContent = originalText;
-      btn.disabled = false;
-    }
+  if (room.expiresAt && now > room.expiresAt && room.status === 'waiting') {
+    alert("Room " + code + " has expired. Please ask your friend to create a new room.");
+    return;
   }
+
+  if (room.status !== 'waiting') {
+    alert("Game already started or finished. Ask your friend to create a new room.");
+    return;
+  }
+
+  myRoom = code;
+  myColor = 'b';
+  opponentName = room.white ? room.white.name : 'Opponent';
+
+  await fbUpdate(`rooms/${code}`, {
+    black: { name: myName, connected: true },
+    status: 'playing'
+  });
+
+  startOnlineGame(opponentName, myName, 'b', code);
 }
 
 async function cancelMatchmaking() {
