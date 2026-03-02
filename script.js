@@ -35,25 +35,8 @@ window.addEventListener('load', async function () {
 });
 
 
-// ===================== FIREBASE SETUP =====================
-const firebaseConfig = {
-  apiKey: "AIzaSyDemo-ChessMaster-Key",
-  databaseURL: "https://chess-online-game-default-rtdb.firebaseio.com",
-};
-
-
-// Use a public demo Firebase (we'll use a free public instance)
-// Actually using a working public Firebase DB
-const FB_URL = "https://chess-online-game-default-rtdb.firebaseio.com";
-
-let myRoom = null;
-let myColor = null; // 'w' or 'b'
-let myName = '';
-let myId = ''; // For tracking online status
-let opponentName = '';
+let myName = 'ChessPlayer';
 let onlineMode = false;
-let pollInterval = null;
-let lastMoveCount = 0;
 
 // ===================== CHESS ENGINE =====================
 const FILES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -100,7 +83,7 @@ const chickenMsgs = {
   check: ["BAWWWK! CHECK!", "🐔🔥 Check check!", "The king is in danger!"],
   checkmate: ["BAWWWWK! CHECKMATE! 🐔🏆", "Kukdi jeet gayi! 🎉", "🐔👑 The chicken wins!"],
   start: ["Cluck! Let's play!", "🐔 Ready to rumble!", "New game! BAWK!"],
-  online: ["🌐 Online game! BAWK!", "Cluck! Playing online!", "🐔 Show them who's boss!"],
+  online: ["New game! BAWK!", "Show them who's boss!"],
 };
 function rMsg(t) { const a = chickenMsgs[t] || chickenMsgs.move; return a[Math.floor(Math.random() * a.length)]; }
 
@@ -263,10 +246,7 @@ function executeMove(from, to, promoChoice) {
   moveHistory.push({ from, to, piece, captured, moveStr });
   currentTurn = color === 'w' ? 'b' : 'w';
 
-  // Push to Firebase if online
-  if (onlineMode && myRoom) {
-    pushMoveOnline(from, to, promoChoice || null);
-  }
+
 
   renderBoard(); updateMoveList(); updateStats();
 
@@ -400,16 +380,7 @@ function updateCoords() {
 
 function handleClick(sq) {
   if (gameOver) return;
-  // Online mode: only move your color
-  if (onlineMode) {
-    if (currentTurn !== myColor) return;
-    if (board[sq] && ((myColor === 'w' && isWhite(board[sq])) || (myColor === 'b' && isBlack(board[sq])))) {
-      if (selectedSq !== null && legalMoves.includes(sq)) { executeMove(selectedSq, sq); selectedSq = null; legalMoves = []; return; }
-      selectedSq = sq; legalMoves = getLegalMoves(sq); renderBoard(); return;
-    }
-    if (selectedSq !== null && legalMoves.includes(sq)) { executeMove(selectedSq, sq); selectedSq = null; legalMoves = []; return; }
-    selectedSq = null; legalMoves = []; renderBoard(); return;
-  }
+
   const p = board[sq];
   if (selectedSq !== null && legalMoves.includes(sq)) { executeMove(selectedSq, sq); selectedSq = null; legalMoves = []; return; }
   if (p && ((currentTurn === 'w' && isWhite(p)) || (currentTurn === 'b' && isBlack(p)))) {
@@ -482,42 +453,23 @@ function startNewGame() {
 
 function resignGame() {
   if (gameOver) {
-    if (onlineMode) showTab('online');
-    else openNameModal();
+    openNameModal();
     return;
   }
 
-  const msg = onlineMode ? "Are you sure you want to resign this online match?" : "Stop this game and declare opponent winner?";
-  if (!confirm(msg)) return;
+  if (!confirm("Stop this game and declare opponent winner?")) return;
 
-  // Determine who wins
-  let winnerColor;
-  if (onlineMode) {
-    winnerColor = myColor === 'w' ? 'Black' : 'White';
-  } else {
-    winnerColor = currentTurn === 'w' ? 'Black' : 'White';
-  }
-
-  const p1 = document.getElementById('p1name').textContent;
-  const p2 = document.getElementById('p2name').textContent;
-  const winnerName = winnerColor === 'White' ? p1 : p2;
-
+  const winnerColor = currentTurn === 'w' ? 'Black' : 'White';
   gameOver = true;
   stopTimers();
 
-  if (onlineMode && myRoom) {
-    fbUpdate(`rooms/${myRoom}`, { winner: winnerName, status: 'finished' });
-    addChat(`🏳️ You resigned the match.`);
-  } else {
-    addChat(`🏳️ ${currentTurn === 'w' ? 'White' : 'Black'} resigned.`);
-  }
-
+  addChat(`🏳️ ${currentTurn === 'w' ? 'White' : 'Black'} resigned.`);
   showWin(winnerColor);
 }
 
 
 function undoMove() {
-  if (moveHistory.length === 0 || gameOver || onlineMode) return;
+  if (moveHistory.length === 0 || gameOver) return;
   const history = [...moveHistory]; history.pop();
   if (gameMode === 'computer' && history.length > 0) history.pop();
   const savedMode = gameMode, savedP1 = document.getElementById('p1name').textContent, savedP2 = document.getElementById('p2name').textContent;
@@ -531,8 +483,8 @@ function flipBoard() { flipped = !flipped; renderBoard(); }
 
 function setMode(mode) {
   gameMode = mode;
-  ['btn-online', 'btn-two', 'btn-comp'].forEach(id => document.getElementById(id).className = 'mode-btn');
-  const idMap = { online: 'btn-online', 'two-player': 'btn-two', computer: 'btn-comp' };
+  ['btn-two', 'btn-comp'].forEach(id => document.getElementById(id).className = 'mode-btn');
+  const idMap = { 'two-player': 'btn-two', computer: 'btn-comp' };
   if (idMap[mode]) document.getElementById(idMap[mode]).className = 'mode-btn active';
 }
 
@@ -550,7 +502,7 @@ function addChat(msg) {
 
 // ===================== NAME MODAL =====================
 function openNameModal() {
-  if (gameMode === 'online') { showTab('online'); return; }
+
   document.getElementById('name-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('modal-p1').focus(), 100);
 }
@@ -578,327 +530,14 @@ function startGameWithNames() {
   addChat(`🐔 ${p1} (White) vs ${p2} (Black) — Let's go!`);
 }
 
-// ===================== ONLINE MODE =====================
-function generateRoomCode() {
-  const chars = '0123456789';
-  return Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-}
 
-async function fbGet(path) {
-  try {
-    const res = await fetch(`${FB_URL}/${path}.json`);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (e) { return null; }
-}
-
-async function fbSet(path, data) {
-  try {
-    await fetch(`${FB_URL}/${path}.json`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return true;
-  } catch (e) { return false; }
-}
-
-async function fbUpdate(path, data) {
-  try {
-    await fetch(`${FB_URL}/${path}.json`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    return true;
-  } catch (e) { return false; }
-}
-
-async function updatePresence() {
-  if (myId) {
-    await fbUpdate(`presence/${myId}`, {
-      lastActive: Date.now(),
-      name: myName,
-      status: 'online'
-    });
-  }
-}
-
-async function findMatch() {
-  document.getElementById('matchmaking-idle').style.display = 'none';
-  document.getElementById('matchmaking-active').style.display = 'block';
-  document.getElementById('matchmaking-status').textContent = 'Scanning for available games...';
-
-  try {
-    const mmState = await fbGet('matchmaking');
-    const now = Date.now();
-
-    if (mmState && mmState.waitingRoomId && (now - mmState.waitingRoomTimestamp < 45000)) {
-      const roomId = mmState.waitingRoomId;
-      const room = await fbGet(`rooms/${roomId}`);
-      if (room && room.status === 'waiting') {
-        myRoom = roomId;
-        myColor = 'b';
-        opponentName = room.white.name;
-
-        await fbUpdate(`rooms/${roomId}`, {
-          black: { name: myName, connected: true },
-          status: 'playing'
-        });
-
-        await fbSet('matchmaking', null);
-        startOnlineGame(opponentName, myName, 'b', roomId);
-        return;
-      }
-    }
-
-    const code = generateRoomCode();
-    myRoom = code;
-    myColor = 'w';
-
-    const roomData = {
-      white: { name: myName, connected: true },
-      black: null,
-      moves: [],
-      currentTurn: 'w',
-      status: 'waiting',
-      createdAt: now
-    };
-
-    await fbSet(`rooms/${code}`, roomData);
-    await fbSet('matchmaking', {
-      waitingRoomId: code,
-      waitingRoomTimestamp: now
-    });
-
-    pollForOpponent(code);
-  } catch (e) {
-    console.error(e);
-    addChat('❌ Matchmaking failed.');
-    cancelMatchmaking();
-  }
-}
-
-async function createPrivateGame() {
-  const code = generateRoomCode();
-  myRoom = code;
-  myColor = 'w';
-  const now = Date.now();
-
-  // Ensure all data is present for the second player
-  const roomData = {
-    white: { name: myName, connected: true },
-    black: null,
-    moves: [],
-    currentTurn: 'w',
-    status: 'waiting',
-    isPrivate: true,
-    createdAt: now,
-    expiresAt: now + (3 * 60 * 1000) // 3 minutes logic
-  };
-
-  document.getElementById('matchmaking-idle').style.display = 'none';
-  document.getElementById('matchmaking-active').style.display = 'block';
-  document.getElementById('matchmaking-status').textContent = 'Creating room...';
-
-  const success = await fbSet(`rooms/${code}`, roomData);
-  if (!success) {
-    alert("Failed to create room. Please check your internet.");
-    cancelMatchmaking();
-    return;
-  }
-
-  document.getElementById('matchmaking-status').innerHTML = `
-    <div style="font-size:12px; color:#777; margin-bottom:5px;">STATUS: WAITING</div>
-    <div style="font-size:14px; margin-bottom:5px;">Room Code:</div>
-    <div style="font-size:32px; color:#fff; font-family:'DM Mono'; font-weight:bold; letter-spacing:4px;">${code}</div>
-    <div style="font-size:12px; color:#888; margin-top:10px;">Share this code with your friend!</div>
-    <div style="font-size:11px; color:#f59e0b; margin-top:4px;">Code valid for 3 minutes</div>
-  `;
-
-  pollForOpponent(code);
-}
-
-async function joinPrivateGame() {
-  const input = document.getElementById('join-code-input') || document.querySelector('input[placeholder*="4"]');
-  const code = input ? input.value.trim() : '';
-
-  if (code.length !== 4) {
-    alert("Please enter a 4-digit code");
-    return;
-  }
-
-  const room = await fbGet(`rooms/${code}`);
-  const now = Date.now();
-
-  if (!room) {
-    alert(`No room found with code ${code}. Make sure your friend has created the room first.`);
-    return;
-  }
-
-  if (room.expiresAt && now > room.expiresAt && room.status === 'waiting') {
-    alert("Room " + code + " has expired. Please ask your friend to create a new room.");
-    return;
-  }
-
-  if (room.status !== 'waiting') {
-    alert("Game already started or finished. Ask your friend to create a new room.");
-    return;
-  }
-
-  myRoom = code;
-  myColor = 'b';
-  opponentName = room.white ? room.white.name : 'Opponent';
-
-  await fbUpdate(`rooms/${code}`, {
-    black: { name: myName, connected: true },
-    status: 'playing'
-  });
-
-  startOnlineGame(opponentName, myName, 'b', code);
-}
-
-async function cancelMatchmaking() {
-  document.getElementById('matchmaking-idle').style.display = 'block';
-  document.getElementById('matchmaking-active').style.display = 'none';
-  if (myRoom) {
-    // Only delete room if it's still waiting or we are the creator
-    const room = await fbGet(`rooms/${myRoom}`);
-    if (room && room.status === 'waiting') {
-      await fbSet(`rooms/${myRoom}`, null);
-
-      const mm = await fbGet('matchmaking');
-      if (mm && mm.waitingRoomId === myRoom) {
-        await fbSet('matchmaking', null);
-      }
-    }
-  }
-  myRoom = null;
-  document.getElementById('matchmaking-status').textContent = 'Looking for open rooms';
-}
-
-async function pollForOpponent(code) {
-  const poll = setInterval(async () => {
-    const room = await fbGet(`rooms/${code}`);
-    const now = Date.now();
-
-    // Check for 3-minute expiry
-    if (room && room.expiresAt && now > room.expiresAt && room.status === 'waiting') {
-      clearInterval(poll);
-      document.getElementById('matchmaking-status').textContent = 'Room expired (3 min limit).';
-      addChat('⏰ Private room expired.');
-      setTimeout(cancelMatchmaking, 3000);
-      return;
-    }
-
-    if (room && room.status === 'playing' && room.black) {
-      clearInterval(poll);
-      opponentName = room.black.name;
-      document.getElementById('matchmaking-status').textContent = 'Opponent found! Starting...';
-      setTimeout(() => startOnlineGame(myName, opponentName, 'w', code), 800);
-    }
-  }, 2000);
-}
-
-
-function startOnlineGame(whiteName, blackName, myCol, code) {
-  myColor = myCol; myRoom = code; onlineMode = true;
-  gameMode = 'online'; setMode('online');
-  showTab('play');
-
-  document.getElementById('p1name').textContent = whiteName;
-  document.getElementById('p2name').textContent = blackName;
-  document.getElementById('p1rating').textContent = myCol === 'w' ? '(You)' : '';
-  document.getElementById('p2rating').textContent = myCol === 'b' ? '(You)' : '';
-
-  // Flip board if playing as black
-  flipped = myCol === 'b';
-
-  startNewGame();
-  addChat(`🌐 Online Game Started!`);
-  addChat(`♙ ${whiteName} vs ♟ ${blackName}`);
-  setChickenMsg(rMsg('online')); exciteChicken('online');
-
-  // Start polling for opponent moves
-  startMovePolling(code);
-}
-
-function startMovePolling(code) {
-  if (pollInterval) clearInterval(pollInterval);
-  lastMoveCount = moveHistory.length;
-
-  pollInterval = setInterval(async () => {
-    if (gameOver) { clearInterval(pollInterval); return; }
-    const room = await fbGet(`rooms/${code}`);
-    if (!room) return;
-
-    // Check if opponent disconnected
-    const oppKey = myColor === 'w' ? 'black' : 'white';
-    if (room[oppKey] && room[oppKey].connected === false) {
-      addChat('⚠️ Opponent disconnected!');
-      clearInterval(pollInterval); return;
-    }
-
-    const moves = room.moves || [];
-    if (moves.length > moveHistory.length) {
-      // Apply opponent's move
-      const latestMove = moves[moveHistory.length];
-      if (latestMove) {
-        const { from, to, promo } = latestMove;
-        selectedSq = null; legalMoves = [];
-        executeMove(from, to, promo || null);
-      }
-    }
-
-    // Sync game over state
-    if (room.winner && !gameOver) {
-      gameOver = true;
-      setStatus(`${room.winner} wins!`);
-    }
-  }, 1500);
-}
-
-async function pushMoveOnline(from, to, promo) {
-  if (!myRoom) return;
-  const room = await fbGet(`rooms/${myRoom}`);
-  const moves = room?.moves || [];
-  moves.push({ from, to, promo: promo || null, by: myColor, t: Date.now() });
-  await fbUpdate(`rooms/${myRoom}`, { moves, currentTurn });
-}
-
-async function leaveRoom() {
-  if (myRoom) {
-    const oppKey = myColor === 'w' ? 'white' : 'black';
-    await fbUpdate(`rooms/${myRoom}`, { [oppKey]: { name: myName, connected: false } });
-  }
-  myRoom = null; myColor = null; onlineMode = false;
-  if (pollInterval) clearInterval(pollInterval);
-  document.getElementById('room-created').style.display = 'none';
-  document.getElementById('join-code').value = '';
-  document.getElementById('join-error').style.display = 'none';
-  addChat('Left the online room.');
-}
-
-function copyRoomCode() {
-  const code = document.getElementById('room-code-display').textContent;
-  navigator.clipboard.writeText(code).then(() => {
-    const el = document.getElementById('room-code-display');
-    el.style.borderColor = '#4caf50';
-    setTimeout(() => el.style.borderColor = '', 1500);
-    addChat(`📋 Room code ${code} copied!`);
-  }).catch(() => {
-    // Fallback
-    const el = document.getElementById('room-code-display');
-    el.style.color = '#4caf50';
-    setTimeout(() => el.style.color = '#fff', 1500);
-  });
-}
 
 // ===================== UI TABS =====================
 function showTab(tab) {
   document.getElementById('game-area').style.display = tab === 'play' ? 'flex' : 'none';
-  document.getElementById('online-area').style.display = tab === 'online' ? 'flex' : 'none';
   document.querySelectorAll('.nav-link').forEach((l, i) => {
     l.classList.remove('active');
-    if ((tab === 'play' && i === 0) || (tab === 'online' && i === 1)) l.classList.add('active');
+    if (tab === 'play' && i === 0) l.classList.add('active');
   });
 }
 
@@ -911,7 +550,7 @@ function exciteChicken(type) {
   setTimeout(() => c.classList.remove('excited'), 1500);
 }
 function chickenClick() {
-  const msgs = ["Bawk bawk! 🐔", "Cluck cluck!", "Kukdi here! 🐔", "Baaawk! Play chess!", "Play online! 🌐🐔"];
+  const msgs = ["Bawk bawk! 🐔", "Cluck cluck!", "Kukdi here! 🐔", "Baaawk! Play chess!"];
   setChickenMsg(msgs[Math.floor(Math.random() * msgs.length)]);
   exciteChicken('move');
 }
@@ -933,20 +572,10 @@ function showWin(winner) {
   if (winner === 'White') document.getElementById('res-won').textContent = parseInt(document.getElementById('res-won').textContent) + 1;
   else document.getElementById('res-lost').textContent = parseInt(document.getElementById('res-lost').textContent) + 1;
 
-  // Update Firebase winner
-  if (onlineMode && myRoom) {
-    fbUpdate(`rooms/${myRoom}`, { winner: wName, status: 'finished' });
-  }
+
 }
 
-// ===================== ONLINE COUNT =====================
-async function updateOnlineCount() {
-  const rooms = await fbGet('rooms');
-  if (rooms) {
-    const active = Object.values(rooms).filter(r => r && r.status && Date.now() - (r.createdAt || 0) < 3600000).length;
-    document.getElementById('online-count').textContent = Math.max(12374 + active * 2, 12374);
-  }
-}
+
 
 // ===================== SIDEBAR =====================
 document.querySelectorAll('.sb-item').forEach(el => {
@@ -965,12 +594,10 @@ document.querySelectorAll('.mtab').forEach(t => {
 // ===================== INIT =====================
 initBoard();
 renderBoard();
-showTab('online'); // Start on online tab
-updateOnlineCount();
-setInterval(updateOnlineCount, 30000);
+showTab('play');
+openNameModal();
 
-// Heartbeat for presence
-setInterval(updatePresence, 5000);
+
 
 // Set player ID on load
 window.addEventListener('load', () => {
@@ -980,10 +607,5 @@ window.addEventListener('load', () => {
 
 // Cleanup old rooms periodically
 window.addEventListener('beforeunload', () => {
-  if (myId) fbUpdate(`presence/${myId}`, { status: 'offline' });
-  if (myRoom && onlineMode) {
-    const oppKey = myColor === 'w' ? 'white' : 'black';
-    navigator.sendBeacon(`${FB_URL}/rooms/${myRoom}/${oppKey}.json`,
-      JSON.stringify({ name: myName, connected: false }));
-  }
+  // if (myId) fbUpdate(`presence/${myId}`, { status: 'offline' });
 });
