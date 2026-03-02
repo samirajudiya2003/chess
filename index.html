@@ -4,44 +4,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChessClub - Play Chess Online</title>
+    <title>ChessClub - Play Chess</title>
     <link
         href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-    <!-- Clerk Logic -->
-    <script async crossorigin="anonymous"
-        data-clerk-publishable-key="pk_test_cG9zaXRpdmUtY3JhbmUtNjcuY2xlcmsuYWNjb3VudHMuZGV2JA"
-        src="https://positive-crane-67.clerk.accounts.dev/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
-        type="text/javascript"></script>
+
 </head>
 
-<body style="visibility: hidden;"> <!-- Hidden until Clerk loads -->
+<body>
 
-    <div id="auth-overlay">
-        <div class="auth-container">
-            <div style="font-size:80px;margin-bottom:20px;">♟️🐔</div>
-            <h1 style="font-family:'Playfair Display',serif; font-size:42px; margin-bottom:10px;">ChessClub</h1>
-            <p style="color:var(--muted); font-size:16px; margin-bottom:30px;">Sign in to compete with players worldwide
-            </p>
-            <div id="clerk-signin"></div>
-        </div>
-    </div>
+
 
 
     <nav>
         <div class="logo">♟ CHESSCLUB</div>
         <div class="nav-links">
-            <div class="nav-link" onclick="showTab('play')">Play</div>
-            <div class="nav-link active" onclick="showTab('online')">🌐 Online</div>
+            <div class="nav-link active" onclick="showTab('play')">Play</div>
             <div class="nav-link">Learn</div>
             <div class="nav-link">Puzzles</div>
         </div>
         <div class="nav-right">
-            <span class="online-count"><span class="online-dot"></span><span id="online-count">0</span> Online</span>
-            <div id="user-button-container" style="margin: 0 10px;"></div>
+
             <button class="btn-new" onclick="openNameModal()">New Game</button>
         </div>
     </nav>
@@ -50,7 +34,7 @@
         <!-- SIDEBAR -->
         <div class="sidebar">
             <div class="sb-label">Play</div>
-            <div class="sb-item" onclick="setMode('online');showTab('online')">🌐 Play Online</div>
+
             <div class="sb-item" onclick="setMode('computer');openNameModal()">🖥 vs Computer</div>
             <div class="sb-item" onclick="setMode('two-player');openNameModal()">👥 Two Players</div>
             <div class="sb-label">Practice</div>
@@ -142,8 +126,7 @@
                 <div class="card">
                     <div class="status-box" id="statusbox">White to move</div>
                     <div class="card-label">Game Mode</div>
-                    <button class="mode-btn" id="btn-online" onclick="setMode('online');showTab('online')">🌐 Play
-                        Online</button>
+
                     <button class="mode-btn" id="btn-two" onclick="setMode('two-player');openNameModal()">👥 Two
                         Players</button>
                     <button class="mode-btn" id="btn-comp" onclick="setMode('computer');openNameModal()">🖥 vs
@@ -208,55 +191,7 @@
             </div>
         </div>
 
-        <!-- ONLINE LOBBY TAB -->
-        <div class="main" id="online-area"
-            style="display:none;flex-direction:column;align-items:center;justify-content:center;gap:24px;">
-            <div style="text-align:center;">
-                <div style="font-size:48px;margin-bottom:8px;">🌐🐔</div>
-                <h2 style="font-family:'Playfair Display',serif;font-size:32px;margin-bottom:6px;">Play Online</h2>
-                <p style="color:var(--muted);font-size:14px;margin-bottom:20px;">Match with active players instantly</p>
-            </div>
 
-            <div class="room-card" style="width:360px; padding: 24px;">
-                <div id="matchmaking-idle">
-                    <div class="card-label" style="text-align:center;">Global Matchmaking</div>
-                    <button class="online-btn create" onclick="findMatch()"
-                        style="height: 50px; font-size: 16px; margin-bottom: 20px;">
-                        Find a Game ⚡
-                    </button>
-
-                    <div class="card-label" style="text-align:center;">Play with a Friend</div>
-                    <div style="display:flex; flex-direction:column; gap:8px;">
-                        <button class="online-btn join" onclick="createPrivateGame()"
-                            style="background:rgba(255,255,255,0.05); border-color:#444;">
-                            Create Room (4-digit) 🔑
-                        </button>
-                        <div style="display:flex; gap:8px; margin-top:8px;">
-                            <input type="text" id="join-code-input" placeholder="ENTER 4-DIGIT CODE" class="join-input"
-                                maxlength="4" style="text-align:center; flex:1;">
-                            <button class="online-btn join" onclick="joinPrivateGame()"
-                                style="flex:0.5; margin-top:0;">Join</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="matchmaking-active" style="display:none; text-align:center;">
-                    <div class="spinner" style="margin: 0 auto 16px;"></div>
-                    <div class="card-label">Status</div>
-                    <p style="color:var(--muted);font-size:13px; min-height:40px;" id="matchmaking-status">Looking for
-                        open rooms</p>
-                    <button class="online-btn leave" onclick="cancelMatchmaking()" style="margin-top:16px;">Cancel
-                        search</button>
-                </div>
-            </div>
-
-            <div
-                style="color:var(--muted);font-size:12px;text-align:center;max-width:400px;background:rgba(255,255,255,0.03);padding:12px;border-radius:8px;">
-                💡 <strong style="color:#aaa;">Fair Play:</strong> Each game has a 10-minute timer per player.
-                Disconnecting for
-                more than 30 seconds may result in a forfeit.
-            </div>
-        </div>
 
     </div>
 
