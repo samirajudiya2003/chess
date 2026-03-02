@@ -691,7 +691,8 @@ async function createPrivateGame() {
     currentTurn: 'w',
     status: 'waiting',
     isPrivate: true,
-    createdAt: now
+    createdAt: now,
+    expiresAt: now + (3 * 60 * 1000) // 3 minutes logic
   };
 
   document.getElementById('matchmaking-idle').style.display = 'none';
@@ -710,6 +711,7 @@ async function createPrivateGame() {
     <div style="font-size:14px; margin-bottom:5px;">Room Code:</div>
     <div style="font-size:32px; color:#fff; font-family:'DM Mono'; font-weight:bold; letter-spacing:4px;">${code}</div>
     <div style="font-size:12px; color:#888; margin-top:10px;">Share this code with your friend!</div>
+    <div style="font-size:11px; color:#f59e0b; margin-top:4px;">Code valid for 3 minutes</div>
   `;
 
   pollForOpponent(code);
@@ -733,9 +735,19 @@ async function joinPrivateGame() {
 
   try {
     const room = await fbGet(`rooms/${code}`);
+    const now = Date.now();
 
     if (!room) {
       alert("No room found with code " + code + ". Make sure your friend has created the room first.");
+      if (btn) {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+      return;
+    }
+
+    if (room.expiresAt && now > room.expiresAt && room.status === 'waiting') {
+      alert("Room " + code + " has expired. Please ask your friend to create a new room.");
       if (btn) {
         btn.textContent = originalText;
         btn.disabled = false;
@@ -792,16 +804,19 @@ async function cancelMatchmaking() {
 }
 
 async function pollForOpponent(code) {
-  let attempts = 0;
   const poll = setInterval(async () => {
-    attempts++;
-    if (attempts > 40) {// 1 min timeout
+    const room = await fbGet(`rooms/${code}`);
+    const now = Date.now();
+
+    // Check for 3-minute expiry
+    if (room && room.expiresAt && now > room.expiresAt && room.status === 'waiting') {
       clearInterval(poll);
-      document.getElementById('matchmaking-status').textContent = 'No one joined. Try again?';
-      setTimeout(cancelMatchmaking, 2000);
+      document.getElementById('matchmaking-status').textContent = 'Room expired (3 min limit).';
+      addChat('⏰ Private room expired.');
+      setTimeout(cancelMatchmaking, 3000);
       return;
     }
-    const room = await fbGet(`rooms/${code}`);
+
     if (room && room.status === 'playing' && room.black) {
       clearInterval(poll);
       opponentName = room.black.name;
