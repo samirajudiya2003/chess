@@ -683,44 +683,93 @@ async function createPrivateGame() {
   myColor = 'w';
   const now = Date.now();
 
+  // Ensure all data is present for the second player
   const roomData = {
     white: { name: myName, connected: true },
+    black: null,
+    moves: [],
+    currentTurn: 'w',
     status: 'waiting',
     isPrivate: true,
     createdAt: now
   };
 
-  await fbSet(`rooms/${code}`, roomData);
   document.getElementById('matchmaking-idle').style.display = 'none';
   document.getElementById('matchmaking-active').style.display = 'block';
-  document.getElementById('matchmaking-status').innerHTML = `Room Code: <span style="font-size:24px; color:#fff; font-family:'DM Mono'">${code}</span><br>Share this code with your friend!`;
+  document.getElementById('matchmaking-status').textContent = 'Creating room...';
+
+  const success = await fbSet(`rooms/${code}`, roomData);
+  if (!success) {
+    alert("Failed to create room. Please check your internet.");
+    cancelMatchmaking();
+    return;
+  }
+
+  document.getElementById('matchmaking-status').innerHTML = `
+    <div style="font-size:12px; color:#777; margin-bottom:5px;">STATUS: WAITING</div>
+    <div style="font-size:14px; margin-bottom:5px;">Room Code:</div>
+    <div style="font-size:32px; color:#fff; font-family:'DM Mono'; font-weight:bold; letter-spacing:4px;">${code}</div>
+    <div style="font-size:12px; color:#888; margin-top:10px;">Share this code with your friend!</div>
+  `;
 
   pollForOpponent(code);
 }
 
 async function joinPrivateGame() {
-  const code = document.getElementById('join-code-input').value.trim();
+  const inputEl = document.getElementById('join-code-input');
+  const code = inputEl.value.trim();
+
   if (code.length !== 4) {
-    alert("Please enter a 4-digit code");
+    alert("Please enter the 4-digit code shown on your friend's screen.");
     return;
   }
 
-  const room = await fbGet(`rooms/${code}`);
-  if (!room || room.status !== 'waiting') {
-    alert("Game not found or already started");
-    return;
+  const btn = document.querySelector('button[onclick="joinPrivateGame()"]');
+  const originalText = btn ? btn.textContent : "Join";
+  if (btn) {
+    btn.textContent = "Joining...";
+    btn.disabled = true;
   }
 
-  myRoom = code;
-  myColor = 'b';
-  opponentName = room.white.name;
+  try {
+    const room = await fbGet(`rooms/${code}`);
 
-  await fbUpdate(`rooms/${code}`, {
-    black: { name: myName, connected: true },
-    status: 'playing'
-  });
+    if (!room) {
+      alert("No room found with code " + code + ". Make sure your friend has created the room first.");
+      if (btn) {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+      return;
+    }
 
-  startOnlineGame(opponentName, myName, 'b', code);
+    if (room.status !== 'waiting') {
+      alert("This game has already started or is no longer available.");
+      if (btn) {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+      return;
+    }
+
+    myRoom = code;
+    myColor = 'b';
+    opponentName = room.white.name;
+
+    await fbUpdate(`rooms/${code}`, {
+      black: { name: myName, connected: true },
+      status: 'playing'
+    });
+
+    startOnlineGame(opponentName, myName, 'b', code);
+  } catch (err) {
+    console.error(err);
+    alert("Connection error. Please try again.");
+    if (btn) {
+      btn.textContent = originalText;
+      btn.disabled = false;
+    }
+  }
 }
 
 async function cancelMatchmaking() {
