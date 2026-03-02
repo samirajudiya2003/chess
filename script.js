@@ -1,42 +1,4 @@
-// ===================== CLERK SETUP =====================
-window.addEventListener('load', async function () {
-  const authOverlay = document.getElementById('auth-overlay');
-
-  if (!window.Clerk) {
-    console.warn("Clerk object not found. SDK might have failed to load.");
-    document.body.style.visibility = 'visible';
-    if (authOverlay) authOverlay.style.display = 'none'; // Safe fallback
-    return;
-  }
-
-  try {
-    await window.Clerk.load();
-
-    if (window.Clerk.user) {
-      document.body.style.visibility = 'visible';
-      if (authOverlay) authOverlay.style.display = 'none';
-
-      // Set user info
-      myName = window.Clerk.user.fullName || window.Clerk.user.username || "ChessPlayer";
-
-      // Render User Button
-      const userButtonDiv = document.getElementById('user-button-container');
-      if (userButtonDiv) window.Clerk.mountUserButton(userButtonDiv);
-    } else {
-      document.body.style.visibility = 'visible';
-      const signinDiv = document.getElementById('clerk-signin');
-      if (signinDiv) window.Clerk.mountSignIn(signinDiv);
-    }
-  } catch (err) {
-    console.error("Clerk initialization error:", err);
-    document.body.style.visibility = 'visible';
-    if (authOverlay) authOverlay.style.display = 'none';
-  }
-});
-
-
 let myName = 'ChessPlayer';
-let onlineMode = false;
 
 // ===================== CHESS ENGINE =====================
 const FILES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
@@ -83,7 +45,7 @@ const chickenMsgs = {
   check: ["BAWWWK! CHECK!", "🐔🔥 Check check!", "The king is in danger!"],
   checkmate: ["BAWWWWK! CHECKMATE! 🐔🏆", "Kukdi jeet gayi! 🎉", "🐔👑 The chicken wins!"],
   start: ["Cluck! Let's play!", "🐔 Ready to rumble!", "New game! BAWK!"],
-  online: ["New game! BAWK!", "Show them who's boss!"],
+
 };
 function rMsg(t) { const a = chickenMsgs[t] || chickenMsgs.move; return a[Math.floor(Math.random() * a.length)]; }
 
